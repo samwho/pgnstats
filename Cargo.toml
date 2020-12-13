@@ -1,0 +1,13 @@
+[package]
+name = "pgnstats"
+version = "0.1.0"
+authors = ["Sam Rose <hello@samwho.dev>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+pgn-reader = "0.15"
+structopt = "0.3"
+pbr = "1"
+progress-streams = "1"
