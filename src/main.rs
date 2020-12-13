@@ -1,4 +1,4 @@
-use std::{fs::File, io, path::PathBuf, time::Duration};
+use std::{fs::File, io::{self, BufReader}, path::PathBuf, time::Duration};
 use pgn_reader::{Visitor, Skip, BufferedReader, SanPlus};
 use structopt::StructOpt;
 use pbr::{ProgressBar, Units};
