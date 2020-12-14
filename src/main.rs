@@ -1,32 +1,38 @@
-use std::{fs::File, io::{self, BufReader}, path::PathBuf, time::Duration};
-use pgn_reader::{Visitor, Skip, BufferedReader, SanPlus};
-use structopt::StructOpt;
 use pbr::{ProgressBar, Units};
+use pgn_reader::{BufferedReader, San, SanPlus, Skip, Square, Visitor};
 use progress_streams::ProgressReader;
+use std::{collections::BTreeMap, fs::File, io, path::PathBuf, time::Duration};
+use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
 struct Opt {
     path: PathBuf,
 }
 
-struct MoveCounter {
-    moves: u128,
+struct CaptureCounter {
+    captures: BTreeMap<Square, usize>,
 }
 
-impl MoveCounter {
-    fn new() -> MoveCounter {
-        MoveCounter { moves: 0 }
+impl CaptureCounter {
+    fn new() -> Self {
+        Self {
+            captures: BTreeMap::new(),
+        }
     }
 }
 
-impl Visitor for MoveCounter {
-    type Result = u128;
+impl Visitor for CaptureCounter {
+    type Result = ();
 
-    fn begin_game(&mut self) {
-    }
+    fn begin_game(&mut self) {}
 
-    fn san(&mut self, _san_plus: SanPlus) {
-        self.moves += 1;
+    fn san(&mut self, san: SanPlus) {
+        if let San::Normal { capture, to, .. } = san.san {
+            if capture {
+                let count = self.captures.entry(to).or_insert(0);
+                *count += 1;
+            }
+        }
     }
 
     fn begin_variation(&mut self) -> Skip {
@@ -34,7 +40,11 @@ impl Visitor for MoveCounter {
     }
 
     fn end_game(&mut self) -> Self::Result {
-        self.moves
+        ()
+    }
+
+    fn end_headers(&mut self) -> Skip {
+        Skip(false)
     }
 }
 
@@ -51,12 +61,26 @@ fn main() -> io::Result<()> {
     });
     let mut reader = BufferedReader::new(pr);
 
-    let mut counter = MoveCounter::new();
-    reader.read_all(&mut counter)?;
+    let mut visitor = CaptureCounter::new();
+    reader.read_all(&mut visitor)?;
 
     pb.finish();
 
-    println!("moves: {}", counter.moves);
+    let total = visitor
+        .captures
+        .iter()
+        .fold(0, |total, (_, count)| total + count);
+
+    let mut sorted: Vec<(&Square, &usize)> = visitor.captures.iter().collect();
+    sorted.sort_by(|a, b| a.1.cmp(b.1));
+
+    for (square, count) in sorted {
+        println!(
+            "{} - {:.2}%",
+            square,
+            (*count as f64 / total as f64) * 100.0
+        );
+    }
 
     Ok(())
 }
